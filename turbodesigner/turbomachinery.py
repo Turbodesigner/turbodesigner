@@ -7,7 +7,7 @@ from turbodesigner.stage import Stage, StageBladeProperty, StageExport
 from dacite.core import from_dict
 
 @dataclass
-class TurbomachinerExport:
+class TurbomachineryExport:
     stages: list[StageExport]
     "turbomachinery stages"
 
@@ -160,7 +160,7 @@ class Turbomachinery:
         return stages
 
     def to_export(self):
-        return TurbomachinerExport(
+        return TurbomachineryExport(
             stages = [
                 stage.to_export() for stage in self.stages
             ]

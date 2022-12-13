@@ -20,6 +20,9 @@ class StageExport:
     stator: BladeRowExport
     "stator blade row"
 
+    stage_height: float
+    "stage height"
+
     stage_number: int
     "stage number"
 
@@ -158,8 +161,12 @@ class Stage:
         )
 
     def to_export(self):
+        rotor=self.rotor.to_export()
+        stator=self.stator.to_export()
+        stage_height = rotor.disk_height+stator.disk_height
         return StageExport(
             stage_number=self.stage_number,
-            rotor=self.rotor.to_export(),
-            stator=self.stator.to_export(),
+            rotor=rotor,
+            stator=stator,
+            stage_height=stage_height
         )
