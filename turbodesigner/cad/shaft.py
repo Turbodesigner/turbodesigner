@@ -15,6 +15,7 @@ class ShaftCadModel:
         rotor_blade = BladeCadModel.blade_profile(stage.rotor)
         return (
             ExtendedWorkplane("XY")
+
             .circle(stage.stator.hub_radius)
             .extrude(stage.stator.disk_height)
 
@@ -34,6 +35,14 @@ class ShaftCadModel:
             .faces("<Z")
             .workplane()
             .text("S", 5, -5)
+
+
+            .add(
+                cq.Workplane("XY")
+                .polarArray(0, 0, 360, stage.rotor.number_of_blades)
+                .eachpoint(lambda loc: rotor_blade.translate((-stage.stator.disk_height-transition_height-stage.rotor.disk_height/2,0,stage.rotor.hub_radius)).rotate((0,0,0), (0,1,0), 90).val().located(loc), True)
+            )
+
         )
 
     def shaft_assembly(self, turbomachinery: TurbomachineryExport):

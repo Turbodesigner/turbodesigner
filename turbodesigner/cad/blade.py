@@ -9,7 +9,6 @@ class BladeCadModel:
     ):
         blade_profile = (
             cq.Workplane("XY")
-            .transformed(offset=cq.Vector(0, 0, blade_row.hub_radius))
             .polyline(blade_row.airfoils[0])
             .close()
         )
@@ -24,17 +23,10 @@ class BladeCadModel:
 
         path = (
             cq.Workplane("XZ")
-            .moveTo(0, blade_row.hub_radius)
-            .lineTo(0, blade_row.tip_radius)
-        )
-
-        blade_profile = (
-            blade_profile
-            .sweep(path, multisection=True, makeSolid=True)
+            .lineTo(0, blade_row.tip_radius-blade_row.hub_radius)
         )
 
         return (
             blade_profile
-            .combine()
-            .translate((0, 0, -blade_row.hub_radius))
+            .sweep(path, multisection=True, makeSolid=True)
         )
