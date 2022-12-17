@@ -23,7 +23,8 @@ def get_arc(
     radius: float,
     center: np.ndarray,
     num_points: int,
-    is_clockwise: bool = True
+    is_clockwise: bool = True,
+    endpoint: bool = True
 ):
     lower_distance = lower_point - center
     upper_distance = upper_point - center
@@ -33,7 +34,7 @@ def get_arc(
     if not is_clockwise:
         angle1 = angle1 + 2*np.pi
 
-    angle = np.linspace(angle1, angle2, num_points, endpoint=True)
+    angle = np.linspace(angle1, angle2, num_points, endpoint=endpoint)
     return center + np.array([
         radius * np.cos(angle),
         radius * np.sin(angle),
@@ -72,89 +73,94 @@ class FirtreeAttachment:
     disk_radius: float
     "disk radius of attachment"
 
+    def __post_init__(self):
+        self.origin = np.array([0, 0])
 
-    def get_dove_arc(self, origin: np.ndarray, num_arc_points: int):
+        # Outer Circle
+        self.outer_circle_lower_tangent = self.origin + (
+            np.array([self.ll*np.cos(self.beta), self.ll*np.sin(self.beta)])
+        )
+        self.outer_circle_upper_tangent = self.outer_circle_lower_tangent + (
+            np.array([0, 2*self.Ro*np.cos(self.gamma)])
+        )
+        self.outer_circle_tanget_intersect = self.outer_circle_lower_tangent + (
+            np.array([self.Ro*(1 - np.sin(self.gamma)**2)/np.sin(self.gamma), self.Ro*np.cos(self.gamma),])
+        )
+        self.outer_circle_center = self.outer_circle_lower_tangent + (
+            np.array([-self.Ro*np.sin(self.gamma), self.Ro*np.cos(self.gamma)])
+        )
+
+        # Inner Circle
+        self.inner_circle_lower_tangent = self.outer_circle_upper_tangent + (
+            np.array([-self.lu*np.cos(self.gamma), self.lu*np.sin(self.gamma)])
+        )
+        self.inner_circle_upper_tangent = self.inner_circle_lower_tangent + (
+            np.array([0, 2*self.Ri*np.cos(self.gamma)])
+        )
+        self.inner_circle_center = self.inner_circle_lower_tangent + (
+            np.array([self.Ri*np.sin(self.beta), self.Ri*np.cos(self.beta)])
+        )
+
+        # Dove
+        self.dove_circle_center = np.array([self.R_dove*np.sin(self.beta), -self.R_dove*np.cos(self.beta)])
+        self.dove_lower_point = self.dove_circle_center + np.array([0,-self.R_dove])
+
+    def get_dove_arc(self, num_arc_points: int):
         "calculates firtree dove arc"
-        dove_circle_center = np.array([self.R_dove*np.sin(self.beta), -self.R_dove*np.cos(self.beta)])
-        lower_point = dove_circle_center + np.array([0,-self.R_dove])
-        return get_arc(lower_point, origin, self.R_dove, dove_circle_center, num_arc_points, is_clockwise=False)
+        return get_arc(self.dove_lower_point, self.origin, self.R_dove, self.dove_circle_center, num_arc_points, is_clockwise=False)
 
     def get_top_arc(self, start_point: np.ndarray, num_arc_points: int):
         "calculates firtree top arc"
         sector_angle = 2*np.arcsin((self.max_length/2)/self.disk_radius)
         top_arc_left_point = start_point
-        top_arc_right_point = start_point + np.array([self.max_length, 0])
+        top_arc_right_point = top_arc_left_point + np.array([self.max_length, 0])
         top_arc_height = self.disk_radius - (self.max_length/2)/np.tan(sector_angle/2)
         disk_center = np.array([0,top_arc_left_point[1]-self.disk_radius+top_arc_height])
         return get_arc(top_arc_left_point, top_arc_right_point, self.disk_radius, disk_center, num_arc_points)
 
-
-    def get_stage(self, origin: np.ndarray, num_arc_points: int):
+    def get_stage(self, num_arc_points: int, end_stage: bool = False):
         "calculates firtree single stage coordinates"
-
-        # Outer Circle
-        outer_circle_lower_tangent = origin + (
-            np.array([self.ll*np.cos(self.beta), self.ll*np.sin(self.beta)])
-        )
-        outer_circle_upper_tangent = outer_circle_lower_tangent + (
-            np.array([0, 2*self.Ro*np.cos(self.gamma)])
-        )
-        outer_circle_tanget_intersect = outer_circle_lower_tangent + (
-            np.array([self.Ro*(1 - np.sin(self.gamma)**2)/np.sin(self.gamma), self.Ro*np.cos(self.gamma),])
-        )
-        outer_circle_center = outer_circle_lower_tangent + (
-            np.array([-self.Ro*np.sin(self.gamma), self.Ro*np.cos(self.gamma)])
-        )
-
-        # Inner Circle
-        inner_circle_lower_tangent = outer_circle_upper_tangent + (
-            np.array([-self.lu*np.cos(self.gamma), self.lu*np.sin(self.gamma)])
-        )
-        inner_circle_upper_tangent = inner_circle_lower_tangent + (
-            np.array([0, 2*self.Ri*np.cos(self.gamma)])
-        )
-        inner_circle_center = inner_circle_lower_tangent + (
-            np.array([self.Ri*np.sin(self.beta), self.Ri*np.cos(self.beta)])
-        )
-
         # Flank Lines
-        yl = np.linspace(origin[1], outer_circle_lower_tangent[1], 20)
-        lower_flank_line = get_line(yl, origin, outer_circle_lower_tangent)
+        yl = np.linspace(self.origin[1], self.outer_circle_lower_tangent[1], 2, endpoint=False)
+        lower_flank_line = get_line(yl, self.origin, self.outer_circle_lower_tangent)
 
-        yu = np.linspace(outer_circle_upper_tangent[1], inner_circle_lower_tangent[1], 20)
-        upper_flank_line = get_line(yu, outer_circle_tanget_intersect, outer_circle_upper_tangent)
+        yu = np.linspace(self.outer_circle_upper_tangent[1], self.inner_circle_lower_tangent[1], 2, endpoint=False)
+        upper_flank_line = get_line(yu, self.outer_circle_tanget_intersect, self.outer_circle_upper_tangent)
 
         # Arcs
-        outer_arc = get_arc(outer_circle_lower_tangent, outer_circle_upper_tangent, self.Ro, outer_circle_center, num_arc_points)
-        inner_arc = get_arc(inner_circle_lower_tangent, inner_circle_upper_tangent, self.Ri, inner_circle_center, num_arc_points, is_clockwise=False)
-
-        return np.concatenate([lower_flank_line, outer_arc, upper_flank_line, inner_arc])
+        outer_arc = get_arc(self.outer_circle_lower_tangent, self.outer_circle_upper_tangent, self.Ro, self.outer_circle_center, num_arc_points, endpoint=False)
+        inner_arc = get_arc(self.inner_circle_lower_tangent, self.inner_circle_upper_tangent, self.Ri, self.inner_circle_center, num_arc_points, is_clockwise=False)
+        
+        stage_elements = [lower_flank_line,outer_arc, upper_flank_line]
+        if not end_stage:
+            stage_elements.append(inner_arc)
+        
+        return np.concatenate(stage_elements)
 
     def get_coords(self, num_arc_points: int = 20):
         "calculates firtree attachment coordinates"
-        origin = np.array([0, 0])
-        stage = self.get_stage(origin, num_arc_points)
-        attachment_left_side = stage
+        stage = self.get_stage(num_arc_points)
+        attachment_stage_side = stage
         # TODO: make this more efficient with Numba
         for i in range(self.num_stages):
-            next_stage = stage+attachment_left_side[-1]-origin
+            next_stage = stage
             if i == self.num_stages - 1:
-                next_stage = next_stage[:-num_arc_points]
-            attachment_left_side = np.concatenate([attachment_left_side, next_stage])
-
-        dove_arc = self.get_dove_arc(origin, num_arc_points)
-        attachment_left_side = np.concatenate([dove_arc, attachment_left_side])
-
-        # offset side to max length
-        attachment_left_side = attachment_left_side + np.array([-attachment_left_side[-1][0]-self.max_length/2, 0])
+                next_stage = self.get_stage(num_arc_points, end_stage=True)
+            attachment_stage_side = np.concatenate([
+                attachment_stage_side[:-1], 
+                next_stage + attachment_stage_side[-1]
+            ])
+        dove_arc = self.get_dove_arc(num_arc_points)
         
-        # attachment right side (mirrored from left)
-        attachment_right_side = np.array([-1, 1]) * np.flip(attachment_left_side, axis=0)
-
+        # offset side to max length
+        attachment_center_offset = np.array([-attachment_stage_side[-1][0]-self.max_length/2, 0])
+        attachment_left_side = np.concatenate([dove_arc[:-1], attachment_stage_side]) + attachment_center_offset
+        
+        attachment_right_side = np.flip(attachment_left_side, axis=0) * np.array([-1, 1]) 
         top_arc = self.get_top_arc(attachment_left_side[-1], num_arc_points)
-
-        return np.concatenate([attachment_left_side, top_arc, attachment_right_side, [attachment_left_side[0]]])
-
+        
+        attachment = np.concatenate([attachment_left_side[:-1], top_arc[:-1], attachment_right_side, [attachment_left_side[0]]])
+        return attachment + np.array([0, -np.max(attachment[:,1])])
     def visualize(self, num_arc_points: int = 20):
         coords = self.get_coords(num_arc_points)
         fig = go.Figure()

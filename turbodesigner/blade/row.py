@@ -1,13 +1,13 @@
 from enum import Enum
 from functools import cached_property
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 from turbodesigner.airfoils import AirfoilType, DCAAirfoil
 from turbodesigner.blade.deviation.johnson import JohnsonBladeDeviation
 from turbodesigner.blade.metal_angles import MetalAngles
 from turbodesigner.blade.vortex.common import Vortex
-from turbodesigner.blade.vortex.free_vortex import FreeVortex
 from turbodesigner.flow_station import FlowStation
+from turbodesigner.attachments.firetree import FirtreeAttachment
 import numpy as np
 import numpy.typing as npt
 from turbodesigner.units import MM
@@ -31,6 +31,12 @@ class BladeRowExport:
 
     airfoils: np.ndarray
     "airfoil coordinates for each blade radius (length)"
+
+    attachment: np.ndarray
+    "attachment coordinates (length)"
+
+    attachment_height: float
+    "attachment height (length)"
 
     number_of_blades: int
     "number of blades"
@@ -203,7 +209,30 @@ class BladeRow:
             for i in range(self.N_stream)
         ]
 
+    @cached_property
+    def attachment(self):
+        # TODO: use faster way to get airfoil width
+        hub_airfoil = self.airfoils[0].get_coords()
+        # max_length = (np.max(hub_airfoil[:, 1]) - np.min(hub_airfoil[:, 1]))  # m
+
+        return FirtreeAttachment(
+            gamma=np.radians(40),
+            beta=np.radians(40),
+            ll=0.1*self.s,
+            lu=0.2*self.s,
+            Ri=0.05*self.s,
+            Ro=0.025*self.s,
+            R_dove=0.05*self.s,
+            max_length=0.75*self.s,
+            num_stages=0,
+            disk_radius=self.rh
+        )
+
+
+
     def to_export(self):
+        attachment = self.attachment.get_coords()
+        attachment_height = np.max(attachment[:, 1]) - np.min(attachment[:, 1])
         return BladeRowExport(
             stage_number=self.stage_number,
             disk_height=self.h_disk * MM,
@@ -211,6 +240,8 @@ class BladeRow:
             tip_radius=self.rt * MM,
             radii=self.radii * MM,
             airfoils=np.array([airfoil.get_coords() for airfoil in self.airfoils]) * MM,
+            attachment=attachment * MM,
+            attachment_height=attachment_height * MM,
             number_of_blades=self.Z,
             twist_angle=np.degrees(self.metal_angles.xi[-1]-self.metal_angles.xi[0]),
             is_rotating=self.is_rotating,
