@@ -19,9 +19,9 @@ class CasingCadModel:
         casing_thickness = self.thickness_to_inlet_radius * first_stage.rotor.tip_radius
         transition_height = stage.stage_height * self.transition_to_total_height
         casing_height = stage.stage_height + transition_height
-        stator_blade = BladeCadModel.blade_profile(stage.stator)
+        stator_blade = BladeCadModel.blade_assembly(stage.stator)
         blade_height_offset = stage.stator.disk_height/2
-        
+
         path = (
             cq.Workplane("XZ")
             .moveTo(0, 0)
@@ -48,8 +48,8 @@ class CasingCadModel:
                 .eachpoint(
                     lambda loc: (
                         stator_blade
-                        .translate((-blade_height_offset,0,0))
-                        .rotate((0,0,0), (0,1,0), 90)
+                        .translate((-blade_height_offset, 0, 0))
+                        .rotate((0, 0, 0), (0, 1, 0), 90)
                     ).val().located(loc), True)  # type: ignore
             )
 

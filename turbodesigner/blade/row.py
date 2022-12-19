@@ -211,10 +211,6 @@ class BladeRow:
 
     @cached_property
     def attachment(self):
-        # TODO: use faster way to get airfoil width
-        hub_airfoil = self.airfoils[0].get_coords()
-        # max_length = (np.max(hub_airfoil[:, 1]) - np.min(hub_airfoil[:, 1]))  # m
-
         return FirtreeAttachment(
             gamma=np.radians(40),
             beta=np.radians(40),

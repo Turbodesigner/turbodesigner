@@ -1,7 +1,14 @@
+from typing import Callable
 import cadquery as cq
+import cq_warehouse.extensions as cq_warehouse_extensions
 
 
 class ExtendedWorkplane(cq.Workplane):
+    clearanceHole = cq_warehouse_extensions._clearanceHole
+    tapHole = cq_warehouse_extensions._tapHole
+    threadedHole = cq_warehouse_extensions._threadedHole
+    insertHole = cq_warehouse_extensions._insertHole
+    pressFitHole = cq_warehouse_extensions._pressFitHole
     def ring(self, radius: float, thickness: float, depth: float) -> "ExtendedWorkplane":
         return (
             self
@@ -26,7 +33,6 @@ class ExtendedWorkplane(cq.Workplane):
 
     def hollow_truncated_cone(self, inner_start_radius: float, inner_end_radius: float, height: float, start_thickness: float, end_thickness: float):
         outer_radius = inner_start_radius + start_thickness
-
         return (
             self
             .truncated_cone(outer_radius, outer_radius, height)
@@ -35,4 +41,11 @@ class ExtendedWorkplane(cq.Workplane):
                 .truncated_cone(inner_start_radius, inner_end_radius, height)
             )
         )
+
+    def mutatePoints(self, callback: Callable[[cq.Location], cq.Location]):
+        for (i, loc) in enumerate(self.objects):
+            if isinstance(loc, cq.Location):
+                mutated_loc = callback(loc)
+                self.objects[i] = mutated_loc
+        return self
 

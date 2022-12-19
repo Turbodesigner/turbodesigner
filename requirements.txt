@@ -6,3 +6,4 @@ ipywidgets>=7.6
 jupyterlab
 dacite
 CoolProp==6.4.2
+git+https://github.com/gumyr/cq_warehouse.git#egg=cq_warehouse
