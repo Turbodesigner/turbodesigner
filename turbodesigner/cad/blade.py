@@ -1,78 +1,90 @@
 from dataclasses import dataclass
-from typing import Optional
+from functools import cached_property
 import cadquery as cq
 import numpy as np
 from turbodesigner.blade.row import BladeRowExport
-from turbodesigner.cad.common import ExtendedWorkplane
-from cq_warehouse.fastener import HeatSetNut
+from turbodesigner.cad.common import ExtendedWorkplane, FastenerPredicter
+
+@dataclass
+class BladeCadModelSpecification:
+    include_attachment: bool = True
+    "whether to include attachment (bool)"
+
+    shaft_connect_length_to_hub_radius: float = 0.10
+    "shaft connect to hub radius (dimensionless)"
+
+    fastener_diameter_to_attachment_bottom_width: float = 0.25
+    "blade attachment fastener to disk height (dimensionless)"
 
 @dataclass
 class BladeCadModel:
-    attachment_screw_indent_height_to_disk_height: Optional[float] = None
-    "blade attachment screw indent to disk height (dimensionless)"
+    blade_row: BladeRowExport
+    "blade row"
 
-    def fastener_diameter(self, blade_row: BladeRowExport):
-        return int(0.1*blade_row.disk_height)
+    spec: BladeCadModelSpecification = BladeCadModelSpecification()
+    "blade cad model specification"
 
-    def heatset_height(self, blade_row: BladeRowExport):
-        return np.round(0.5*blade_row.attachment_height)
+    @cached_property
+    def lock_screw(self):
+        return FastenerPredicter.predict_screw(
+            target_diameter=self.heatset.thread_diameter,
+            target_length=np.floor(self.spec.shaft_connect_length_to_hub_radius*self.blade_row.hub_radius+self.heatset.nut_thickness)
+        )
 
-    def blade_assembly(
-        self,
-        blade_row: BladeRowExport,
-        include_attachment: bool = True
-    ):
+    @cached_property
+    def heatset(self):
+        return FastenerPredicter.predict_heatset(
+            target_diameter=self.spec.fastener_diameter_to_attachment_bottom_width*self.blade_row.attachment_bottom_width,
+            max_nut_thickness=self.blade_row.attachment_height*0.75
+        )
+
+    @cached_property
+    def blade_assembly(self):
         base_assembly = cq.Assembly()
-        hub_airfoil = blade_row.airfoils[0]
+        hub_airfoil = self.blade_row.airfoils[0]
         airfoil_offset = np.array([
             (np.max(hub_airfoil[:, 0]) + np.min(hub_airfoil[:, 0]))/2,
             (np.max(hub_airfoil[:, 1]) + np.min(hub_airfoil[:, 1]))/2
         ])
 
         blade_profile = cq.Workplane("XY")
-        if include_attachment:
-            assert self.attachment_screw_indent_height_to_disk_height is not None, "attachment_screw_indent_height_to_disk_height needs to be assigned for include_attachment"
-            attachment_screw_indent_height = blade_row.disk_height * self.attachment_screw_indent_height_to_disk_height
-            heatset_diameter = self.fastener_diameter(blade_row)
-            heatset_height =  self.heatset_height(blade_row)
-            # heatset = HeatSetNut(
-            #     size=f"M{heatset_diameter}-0.4-{heatset_height}",
-            #     fastener_type="Hilitchi",
-            #     simple=True,
-            # )
-
+        
+        # Add attachment
+        if self.spec.include_attachment:
             blade_profile = (
                 ExtendedWorkplane("YZ")
-                .polyline(blade_row.attachment)  # type: ignore
+                .polyline(self.blade_row.attachment)  # type: ignore
                 .close()
-                .extrude(blade_row.disk_height*0.5, both=True)
-                
-                # .faces(">Z")
-                # .translate()
-                # .clearanceHole(heatset, baseAssembly=base_assembly)
+                .extrude(self.blade_row.disk_height*0.5, both=True)
+
+                .faces("<Z")
+                .workplane()
+                .insertHole(self.heatset, depth=self.heatset.nut_thickness*0.9, baseAssembly=base_assembly)
 
                 .faces(">Z")
                 .workplane()
             )
 
+        # Hub Airfoil
         blade_profile = (
             blade_profile
             .polyline(hub_airfoil - airfoil_offset)
             .close()
         )
 
-        for i in range(0, len(blade_row.radii) - 1):
+        # Add all airfoil stations
+        for i in range(0, len(self.blade_row.radii) - 1):
             blade_profile = (
                 blade_profile
-                .transformed(offset=cq.Vector(0, 0, blade_row.radii[i+1]-blade_row.radii[i]))
-                .polyline(blade_row.airfoils[i+1] - airfoil_offset)
+                .transformed(offset=cq.Vector(0, 0, self.blade_row.radii[i+1]-self.blade_row.radii[i]))
+                .polyline(self.blade_row.airfoils[i+1] - airfoil_offset)
                 .close()
             )
 
-        hub_height_offset = blade_row.hub_radius*np.cos((2*np.pi / blade_row.number_of_blades) / 2)-blade_row.hub_radius
+        hub_height_offset = self.blade_row.hub_radius*np.cos((2*np.pi / self.blade_row.number_of_blades) / 2)-self.blade_row.hub_radius
         path = (
             cq.Workplane("XZ")
-            .lineTo(hub_height_offset, blade_row.tip_radius-blade_row.hub_radius)
+            .lineTo(hub_height_offset, self.blade_row.tip_radius-self.blade_row.hub_radius)
         )
 
         blade_profile = (

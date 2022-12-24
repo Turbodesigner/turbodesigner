@@ -38,6 +38,9 @@ class BladeRowExport:
     attachment_height: float
     "attachment height (length)"
 
+    attachment_bottom_width: float
+    "attachment bottom width (length)"
+
     number_of_blades: int
     "number of blades"
 
@@ -220,15 +223,13 @@ class BladeRow:
             Ro=0.025*self.s,
             R_dove=0.05*self.s,
             max_length=0.75*self.s,
-            num_stages=0,
+            num_stages=1,
             disk_radius=self.rh
         )
 
 
 
     def to_export(self):
-        attachment = self.attachment.get_coords()
-        attachment_height = np.max(attachment[:, 1]) - np.min(attachment[:, 1])
         return BladeRowExport(
             stage_number=self.stage_number,
             disk_height=self.h_disk * MM,
@@ -236,8 +237,9 @@ class BladeRow:
             tip_radius=self.rt * MM,
             radii=self.radii * MM,
             airfoils=np.array([airfoil.get_coords() for airfoil in self.airfoils]) * MM,
-            attachment=attachment * MM,
-            attachment_height=attachment_height * MM,
+            attachment=self.attachment.coords * MM,
+            attachment_height=self.attachment.height * MM,
+            attachment_bottom_width=self.attachment.bottom_width * MM,
             number_of_blades=self.Z,
             twist_angle=np.degrees(self.metal_angles.xi[-1]-self.metal_angles.xi[0]),
             is_rotating=self.is_rotating,
