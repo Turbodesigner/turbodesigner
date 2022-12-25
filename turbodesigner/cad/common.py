@@ -78,7 +78,7 @@ class FastenerPredicter:
 
 
     @staticmethod
-    def predict_heatset(target_diameter: float, max_nut_thickness: float, type: str = "Hilitchi"):
+    def predict_heatset(target_diameter: float, type: str = "Hilitchi"):
         nominal_size_range = HeatSetNut.sizes(type)
         predicted_size = FastenerPredicter.get_nominal_size(target_diameter, nominal_size_range)
 
@@ -88,7 +88,6 @@ class FastenerPredicter:
             simple=True,
         )
 
-        # assert heatset.nut_thickness <= max_nut_thickness, f"heatset nut thickness {heatset.nut_thickness} is greater than max nut thickness {max_nut_thickness}"
         return heatset
 
     @staticmethod

@@ -10,8 +10,8 @@ class BladeCadModelSpecification:
     include_attachment: bool = True
     "whether to include attachment (bool)"
 
-    shaft_connect_length_to_hub_radius: float = 0.10
-    "shaft connect to hub radius (dimensionless)"
+    shaft_connect_length: float = 0.00
+    "shaft connect length (dimensionless)"
 
     fastener_diameter_to_attachment_bottom_width: float = 0.25
     "blade attachment fastener to disk height (dimensionless)"
@@ -28,19 +28,20 @@ class BladeCadModel:
     def lock_screw(self):
         return FastenerPredicter.predict_screw(
             target_diameter=self.heatset.thread_diameter,
-            target_length=np.floor(self.spec.shaft_connect_length_to_hub_radius*self.blade_row.hub_radius+self.heatset.nut_thickness)
+            target_length=self.spec.shaft_connect_length+self.heatset.nut_thickness
         )
 
     @cached_property
     def heatset(self):
         return FastenerPredicter.predict_heatset(
             target_diameter=self.spec.fastener_diameter_to_attachment_bottom_width*self.blade_row.attachment_bottom_width,
-            max_nut_thickness=self.blade_row.attachment_height*0.75
         )
 
     @cached_property
     def blade_assembly(self):
         base_assembly = cq.Assembly()
+        fastener_assembly = cq.Assembly()
+
         hub_airfoil = self.blade_row.airfoils[0]
         airfoil_offset = np.array([
             (np.max(hub_airfoil[:, 0]) + np.min(hub_airfoil[:, 0]))/2,
@@ -59,7 +60,7 @@ class BladeCadModel:
 
                 .faces("<Z")
                 .workplane()
-                .insertHole(self.heatset, depth=self.heatset.nut_thickness*0.9, baseAssembly=base_assembly)
+                .insertHole(self.heatset, depth=self.heatset.nut_thickness*0.9, baseAssembly=fastener_assembly)
 
                 .faces(">Z")
                 .workplane()
@@ -93,4 +94,6 @@ class BladeCadModel:
         )
 
         base_assembly.add(blade_profile, name="Blade")
+        base_assembly.add(fastener_assembly, name="Fasteners")
+
         return base_assembly
