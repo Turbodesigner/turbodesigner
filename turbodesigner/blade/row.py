@@ -35,6 +35,9 @@ class BladeRowExport:
     attachment: np.ndarray
     "attachment coordinates (length)"
 
+    attachment_with_tolerance: np.ndarray
+    "attachment coordinates (length)"
+
     attachment_height: float
     "attachment height (length)"
 
@@ -214,19 +217,20 @@ class BladeRow:
 
     @cached_property
     def attachment(self):
-        return FirtreeAttachment(
+        attachment = FirtreeAttachment(
             gamma=np.radians(40),
             beta=np.radians(40),
-            ll=0.1*self.s,
+            ll=0.15*self.s,
             lu=0.2*self.s,
             Ri=0.05*self.s,
             Ro=0.025*self.s,
             R_dove=0.05*self.s,
             max_length=0.75*self.s,
-            num_stages=1,
-            disk_radius=self.rh
+            num_stages=2,
+            disk_radius=self.rh,
+            tolerance=0.0006 # m, 0.5 mm
         )
-
+        return attachment
 
 
     def to_export(self):
@@ -238,6 +242,7 @@ class BladeRow:
             radii=self.radii * MM,
             airfoils=np.array([airfoil.get_coords() for airfoil in self.airfoils]) * MM,
             attachment=self.attachment.coords * MM,
+            attachment_with_tolerance=self.attachment.coords_with_tolerance * MM,
             attachment_height=self.attachment.height * MM,
             attachment_bottom_width=self.attachment.bottom_width * MM,
             number_of_blades=self.Z,

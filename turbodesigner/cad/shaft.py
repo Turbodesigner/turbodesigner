@@ -31,11 +31,13 @@ class ShaftCadModelSpecification:
     shaft_connect_screw_quantity: int = 4
     "shaft connect screw quantity (dimensionless)"
 
-    attachment_insert_scale_factor: float = 1.05
-    "rotor blade attachment tolerance scale factor (dimensionless)"
+    shaft_connect_clearance: float = 0.5
+    "adapter connection circular clearance (mm)"
+    # attachment_insert_scale_factor: float = 1.15
+    # "rotor blade attachment tolerance scale factor (dimensionless)"
 
-    shaft_female_connect_outer_radius_scale_factor: float = 1.05
-    "shaft female connect tolerance scale factor (dimensionless)"
+    # shaft_female_connect_outer_radius_scale_factor: float = 1.05
+    # "shaft female connect tolerance scale factor (dimensionless)"
 
 
 @dataclass
@@ -117,12 +119,11 @@ class ShaftCadModel:
                 .eachpoint(
                     lambda loc: (
                         cq.Workplane("XY")
-                        .polyline(self.stage.rotor.attachment * self.spec.attachment_insert_scale_factor)  # type: ignore
+                        .polyline(self.stage.rotor.attachment_with_tolerance)  # type: ignore
                         .close()
                         .rotate((0, 0, 0), (0, 0, 1), 270)
                     ).val().located(loc), True)  # type: ignore
                 .cutBlind(-self.stage.rotor.disk_height)
-
 
                 # Shaft Male Connect
                 .faces(">Z")
@@ -156,7 +157,7 @@ class ShaftCadModel:
                     shaft_profile
                     .faces("<Z")
                     .workplane()
-                    .circle(self.next_stage_shaft_cad_model.shaft_connect_outer_radius*self.spec.shaft_female_connect_outer_radius_scale_factor)
+                    .circle(self.next_stage_shaft_cad_model.shaft_connect_outer_radius + self.spec.shaft_connect_clearance)
                     .cutBlind(-self.next_stage_shaft_cad_model.shaft_connect_height)
                     
                     # Next Shaft Connect Heatsets
