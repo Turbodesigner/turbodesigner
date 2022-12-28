@@ -78,17 +78,24 @@ class FastenerPredicter:
 
 
     @staticmethod
-    def predict_heatset(target_diameter: float, type: str = "Hilitchi"):
+    def predict_heatset(target_diameter: float, max_height: Optional[float] = None, type: str = "Hilitchi"):
         nominal_size_range = HeatSetNut.sizes(type)
-        predicted_size = FastenerPredicter.get_nominal_size(target_diameter, nominal_size_range)
+        last_acceptable_height_heatset: Optional[HeatSetNut] = None
+        for nominal_size in nominal_size_range:
+            heatset = HeatSetNut(
+                size=nominal_size,
+                fastener_type=type,
+                simple=True,
+            )
+            if max_height and heatset.nut_thickness <= max_height:
+                last_acceptable_height_heatset = heatset
+            if target_diameter <= heatset.nut_diameter :
+                if max_height and heatset.nut_thickness > max_height:
+                    assert last_acceptable_height_heatset is not None, f"no heasets are valid for max height {max_height}, closest heatset {heatset.nut_diameter}"
+                    return last_acceptable_height_heatset
+                return heatset
+        raise ValueError(f"nominal size for target diameter {target_diameter} could not be found")
 
-        heatset = HeatSetNut(
-            size=predicted_size,
-            fastener_type=type,
-            simple=True,
-        )
-
-        return heatset
 
     @staticmethod
     def predict_screw(target_diameter: float, target_length: float, type: str = "iso4762"):

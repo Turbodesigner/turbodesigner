@@ -77,6 +77,9 @@ class FirtreeAttachment:
     tolerance: float
     "attachment side tolerance"
 
+    include_top_arc: bool = True
+    "whether or not to include top arc"
+
     num_arc_points: int = 20
     "number of arc points"
 
@@ -117,15 +120,19 @@ class FirtreeAttachment:
         "calculates firtree dove arc"
         return get_arc(self.dove_lower_point, self.origin, self.R_dove, self.dove_circle_center, self.num_arc_points, is_clockwise=False)
 
-    def get_top_arc(self, include_tolerance: bool):
-        "calculates firtree top arc"
+    def get_top_shape(self, include_tolerance: bool):
+        "calculates firtree top arc or line segement"
         max_length = self.max_length + self.tolerance if include_tolerance else self.max_length
-        sector_angle = 2*np.arcsin((max_length/2)/self.disk_radius)
         top_arc_left_point = self.left_side[-1]
         top_arc_right_point = top_arc_left_point + np.array([max_length, 0])
-        top_arc_height = self.disk_radius - (max_length/2)/np.tan(sector_angle/2)
-        disk_center = np.array([0,top_arc_left_point[1]-self.disk_radius+top_arc_height])
-        return get_arc(top_arc_left_point, top_arc_right_point, self.disk_radius, disk_center, self.num_arc_points)
+        
+        if self.include_top_arc:
+            sector_angle = 2*np.arcsin((max_length/2)/self.disk_radius)
+            top_arc_height = self.disk_radius - (max_length/2)/np.tan(sector_angle/2)
+            disk_center = np.array([0,top_arc_left_point[1]-self.disk_radius+top_arc_height])
+            return get_arc(top_arc_left_point, top_arc_right_point, self.disk_radius, disk_center, self.num_arc_points)
+
+        return np.concatenate([[top_arc_left_point], [top_arc_right_point]])
 
     def get_stage(self, end_stage: bool = False):
         "calculates firtree single stage coordinates"
@@ -171,7 +178,7 @@ class FirtreeAttachment:
 
     def get_coords(self, include_tolerance: bool):
         "calculates firtree attachment coordinates"
-        top_arc = self.get_top_arc(include_tolerance)
+        top_arc = self.get_top_shape(include_tolerance)
         left_side = self.left_side + np.array([-self.tolerance/2, 0]) if include_tolerance else self.left_side
         attachment_right_side = np.flip(left_side, axis=0) * np.array([-1, 1])        
         attachment = np.concatenate([left_side[:-1], top_arc[:-1], attachment_right_side, [left_side[0]]])

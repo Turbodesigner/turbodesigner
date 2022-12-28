@@ -35,6 +35,7 @@ class BladeCadModel:
     def heatset(self):
         return FastenerPredicter.predict_heatset(
             target_diameter=self.spec.fastener_diameter_to_attachment_bottom_width*self.blade_row.attachment_bottom_width,
+            max_height=self.blade_row.attachment_height*0.75
         )
 
     @cached_property
@@ -42,34 +43,16 @@ class BladeCadModel:
         base_assembly = cq.Assembly()
         fastener_assembly = cq.Assembly()
 
-        hub_airfoil = self.blade_row.airfoils[0]
-        airfoil_offset = np.array([
-            (np.max(hub_airfoil[:, 0]) + np.min(hub_airfoil[:, 0]))/2,
-            (np.max(hub_airfoil[:, 1]) + np.min(hub_airfoil[:, 1]))/2
+        start_airfoil = self.blade_row.airfoils[0]
+        airfoil_vertical_offset = np.array([
+            (np.max(start_airfoil[:, 0]) + np.min(start_airfoil[:, 0]))/2,
+            (np.max(start_airfoil[:, 1]) + np.min(start_airfoil[:, 1]))/2
         ])
-
-        blade_profile = cq.Workplane("XY")
         
-        # Add attachment
-        if self.spec.include_attachment:
-            blade_profile = (
-                ExtendedWorkplane("YZ")
-                .polyline(self.blade_row.attachment)  # type: ignore
-                .close()
-                .extrude(self.blade_row.disk_height*0.5, both=True)
-
-                .faces("<Z")
-                .workplane()
-                .insertHole(self.heatset, depth=self.heatset.nut_thickness*0.9, baseAssembly=fastener_assembly)
-
-                .faces(">Z")
-                .workplane()
-            )
-
         # Hub Airfoil
         blade_profile = (
-            blade_profile
-            .polyline(hub_airfoil - airfoil_offset)
+            cq.Workplane("XY")
+            .polyline(start_airfoil - airfoil_vertical_offset)
             .close()
         )
 
@@ -78,20 +61,45 @@ class BladeCadModel:
             blade_profile = (
                 blade_profile
                 .transformed(offset=cq.Vector(0, 0, self.blade_row.radii[i+1]-self.blade_row.radii[i]))
-                .polyline(self.blade_row.airfoils[i+1] - airfoil_offset)
+                .polyline(self.blade_row.airfoils[i+1] - airfoil_vertical_offset)
                 .close()
             )
 
-        hub_height_offset = self.blade_row.hub_radius*np.cos((2*np.pi / self.blade_row.number_of_blades) / 2)-self.blade_row.hub_radius
+        if self.blade_row.is_rotating:
+            hub_height_offset = self.blade_row.hub_radius*np.cos((2*np.pi / self.blade_row.number_of_blades) / 2)-self.blade_row.hub_radius
+        else:
+            hub_height_offset = 0
+
+        blade_height = self.blade_row.tip_radius-self.blade_row.hub_radius
         path = (
             cq.Workplane("XZ")
-            .lineTo(hub_height_offset, self.blade_row.tip_radius-self.blade_row.hub_radius)
+            .lineTo(hub_height_offset, blade_height)
+        )
+
+        attachment_workplane = ExtendedWorkplane("YZ")
+        if not self.blade_row.is_rotating:
+            attachment_workplane = (
+                attachment_workplane
+                .transformed(rotate=(0,0,180), offset=(0,blade_height,0))
+            )
+        # Attachment Profile
+        attachment_profile = (
+            attachment_workplane
+            .polyline(self.blade_row.attachment)  # type: ignore
+            .close()
+            .extrude(self.blade_row.disk_height*0.5, both=True)
+
+            .faces("<Z" if self.blade_row.is_rotating else ">Z")
+            .workplane()
+            .insertHole(self.heatset, depth=self.heatset.nut_thickness*0.9, baseAssembly=fastener_assembly)
         )
 
         blade_profile = (
             blade_profile
             .sweep(path, multisection=True, makeSolid=True)
+            .add(attachment_profile)
         )
+
 
         base_assembly.add(blade_profile, name="Blade")
         base_assembly.add(fastener_assembly, name="Fasteners")

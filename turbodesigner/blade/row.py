@@ -217,6 +217,8 @@ class BladeRow:
 
     @cached_property
     def attachment(self):
+        num_stages = 2 if self.is_rotating else 2
+        max_length = 0.75*self.s if self.is_rotating else 1*self.s
         attachment = FirtreeAttachment(
             gamma=np.radians(40),
             beta=np.radians(40),
@@ -225,10 +227,11 @@ class BladeRow:
             Ri=0.05*self.s,
             Ro=0.025*self.s,
             R_dove=0.05*self.s,
-            max_length=0.75*self.s,
-            num_stages=2,
+            max_length=max_length,
+            num_stages=num_stages,
             disk_radius=self.rh,
-            tolerance=0.0006 # m, 0.5 mm
+            tolerance=0.0006, # m, 0.5 mm
+            include_top_arc=self.is_rotating
         )
         return attachment
 
