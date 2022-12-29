@@ -10,8 +10,8 @@ class BladeCadModelSpecification:
     include_attachment: bool = True
     "whether to include attachment (bool)"
 
-    shaft_connect_length: float = 0.00
-    "shaft connect length (dimensionless)"
+    screw_length_padding: float = 0.00
+    "screw length padding (dimensionless)"
 
     fastener_diameter_to_attachment_bottom_width: float = 0.25
     "blade attachment fastener to disk height (dimensionless)"
@@ -28,14 +28,14 @@ class BladeCadModel:
     def lock_screw(self):
         return FastenerPredicter.predict_screw(
             target_diameter=self.heatset.thread_diameter,
-            target_length=self.spec.shaft_connect_length+self.heatset.nut_thickness
+            target_length=self.spec.screw_length_padding+self.heatset.nut_thickness
         )
 
     @cached_property
     def heatset(self):
         return FastenerPredicter.predict_heatset(
             target_diameter=self.spec.fastener_diameter_to_attachment_bottom_width*self.blade_row.attachment_bottom_width,
-            max_height=self.blade_row.attachment_height*0.75
+            max_thickness=self.blade_row.attachment_height*0.75
         )
 
     @cached_property

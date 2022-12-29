@@ -25,8 +25,8 @@ class ShaftCadModelSpecification:
     shaft_connect_padding_to_attachment_height: float = 1.25
     "shaft connect padding to attachment height (dimensionless)"
 
-    shaft_fastener_diameter_to_disk_height: float = 0.05
-    "shaft fastener diameter to connect height (dimensionless)"
+    shaft_connect_heatset_diameter_to_disk_height: float = 0.05
+    "shaft connect heatset diameter to disk height (dimensionless)"
 
     shaft_connect_screw_quantity: int = 4
     "shaft connect screw quantity (dimensionless)"
@@ -48,21 +48,23 @@ class ShaftCadModel:
     def __post_init__(self):
         self.transition_height = self.stage.stage_height * self.spec.shaft_transition_to_total_height
 
-        self.shaft_connector_heatset = FastenerPredicter.predict_heatset(
-            target_diameter=self.stage.rotor.disk_height*self.spec.shaft_fastener_diameter_to_disk_height,
+        self.shaft_connect_heatset = FastenerPredicter.predict_heatset(
+            target_diameter=self.stage.rotor.disk_height*self.spec.shaft_connect_heatset_diameter_to_disk_height,
         )
-
-        self.shaft_connect_length = self.shaft_connector_heatset.nut_thickness * self.spec.shaft_connect_length_to_heatset_thickness
+        self.shaft_connect_length = self.shaft_connect_heatset.nut_thickness * self.spec.shaft_connect_length_to_heatset_thickness
 
         self.blade_cad_model = BladeCadModel(
             self.stage.rotor,
             spec=BladeCadModelSpecification(
                 self.spec.include_attachment,
-                shaft_connect_length=self.shaft_connect_length
+                screw_length_padding=self.shaft_connect_length
             )
         )
 
-        self.shaft_connect_height = self.blade_cad_model.lock_screw.head_diameter * self.spec.shaft_connect_height_to_screw_head_diameter
+        # TODO: Just used to get head diameter, length doesn't matter
+        self.shaft_connect_screw = FastenerPredicter.predict_screw(target_diameter=self.shaft_connect_heatset.thread_diameter)
+
+        self.shaft_connect_height = self.shaft_connect_screw.head_diameter * self.spec.shaft_connect_height_to_screw_head_diameter
         shaft_connect_padding = self.stage.rotor.attachment_height * self.spec.shaft_connect_padding_to_attachment_height
         self.shaft_connect_outer_radius = self.stage.rotor.hub_radius-shaft_connect_padding
         self.shaft_connect_inner_radius = self.shaft_connect_outer_radius-self.shaft_connect_length
@@ -70,8 +72,8 @@ class ShaftCadModel:
         if self.next_stage:
             self.next_stage_shaft_cad_model = ShaftCadModel(self.next_stage, spec=self.spec)
             self.next_stage_shaft_connector_screw = FastenerPredicter.predict_screw(
-                target_diameter=self.next_stage_shaft_cad_model.shaft_connector_heatset.thread_diameter,
-                target_length=self.next_stage_shaft_cad_model.shaft_connector_heatset.nut_thickness + (self.stage.stator.hub_radius - self.next_stage_shaft_cad_model.shaft_connect_outer_radius)
+                target_diameter=self.next_stage_shaft_cad_model.shaft_connect_heatset.thread_diameter,
+                target_length=self.next_stage_shaft_cad_model.shaft_connect_heatset.nut_thickness + (self.stage.stator.hub_radius - self.next_stage_shaft_cad_model.shaft_connect_outer_radius)
             )
 
     @cached_property
@@ -109,7 +111,7 @@ class ShaftCadModel:
                 # Cut Attachments - TODO: make this operation faster
                 .faces(">Z")
                 .workplane()
-                .polarArray(1.01*self.stage.rotor.hub_radius, 0, 360, self.stage.rotor.number_of_blades)
+                .polarArray(1.0001*self.stage.rotor.hub_radius, 0, 360, self.stage.rotor.number_of_blades)
                 .eachpoint(
                     lambda loc: (
                         cq.Workplane("XY")
@@ -143,7 +145,7 @@ class ShaftCadModel:
                 .workplane(offset=-self.shaft_connect_height/2)
                 .polarArray(self.shaft_connect_outer_radius, 0, 360, self.spec.shaft_connect_screw_quantity)
                 .mutatePoints(lambda loc: loc * cq.Location(cq.Vector(0, 0, 0), cq.Vector(0, 1, 0), 90))
-                .insertHole(self.shaft_connector_heatset, fit="Loose", baseAssembly=fastener_assembly, depth=self.shaft_connector_heatset.nut_thickness)
+                .insertHole(self.shaft_connect_heatset, fit="Loose", baseAssembly=fastener_assembly, depth=self.shaft_connect_heatset.nut_thickness)
             )
             if self.next_stage_shaft_cad_model:
                 shaft_profile = (
@@ -154,7 +156,7 @@ class ShaftCadModel:
                     .circle(self.next_stage_shaft_cad_model.shaft_connect_outer_radius + self.spec.shaft_connect_clearance)
                     .cutBlind(-self.next_stage_shaft_cad_model.shaft_connect_height)
                     
-                    # Next Shaft Connect Heatsets
+                    # Next Shaft Connect Screws
                     .faces("<Z")
                     .workplane(offset=-self.next_stage_shaft_cad_model.shaft_connect_height/2)
                     .polarArray(self.next_stage_shaft_cad_model.stage.rotor.hub_radius, 0, 360, self.spec.shaft_connect_screw_quantity)
