@@ -130,7 +130,7 @@ class ShaftCadModel:
                 # Shaft Connect Hole
                 .faces(">Z")
                 .workplane()
-                .circle(self.shaft_connect_inner_radius*1.01)
+                .circle(self.shaft_connect_inner_radius*1.001)
                 .cutThruAll()
 
                 # Blade Lock Screws

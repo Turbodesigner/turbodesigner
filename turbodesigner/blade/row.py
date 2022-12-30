@@ -140,7 +140,10 @@ class BladeRow:
     @cached_property
     def Z(self):
         "number of blades in row (dimensionless)"
-        return int(np.ceil(2*np.pi*self.rm/(self.sc*self.c)))
+        Z = np.ceil(2*np.pi*self.rm/(self.sc*self.c))
+        if not self.is_rotating and not Z % 2 == 0:
+            Z -= 1
+        return int(Z)
 
     @cached_property
     def s(self):
@@ -217,7 +220,6 @@ class BladeRow:
 
     @cached_property
     def attachment(self):
-        num_stages = 2 if self.is_rotating else 2
         max_length = 0.75*self.s if self.is_rotating else 1*self.s
         attachment = FirtreeAttachment(
             gamma=np.radians(40),
@@ -228,7 +230,7 @@ class BladeRow:
             Ro=0.025*self.s,
             R_dove=0.05*self.s,
             max_length=max_length,
-            num_stages=num_stages,
+            num_stages=2,
             disk_radius=self.rh,
             tolerance=0.0006, # m, 0.5 mm
             include_top_arc=self.is_rotating

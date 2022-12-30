@@ -5,7 +5,7 @@ from turbodesigner.cad.blade import BladeCadModel, BladeCadModelSpecification
 from turbodesigner.cad.common import ExtendedWorkplane, FastenerPredicter
 from turbodesigner.stage import StageExport
 import cadquery as cq
-from turbodesigner.turbomachinery import TurbomachineryExport
+import numpy as np
 
 @dataclass
 class CasingCadModelSpecifciation:
@@ -46,29 +46,29 @@ class CasingCadModel:
     "casing cad model specification"
 
     def __post_init__(self):
-        self.casing_thickness = self.spec.casing_thickness_to_inlet_radius * self.first_stage.rotor.tip_radius
         self.transition_height = self.stage.stage_height * self.spec.casing_transition_to_total_height
         self.casing_height = self.stage.stage_height + self.transition_height
+        
+        self.casing_connect_heatset = FastenerPredicter.predict_heatset(
+            target_diameter=self.stage.rotor.disk_height*self.spec.casing_connect_heatset_diameter_to_disk_height,
+        )
 
+        self.casing_thickness = self.spec.casing_thickness_to_inlet_radius * self.first_stage.rotor.tip_radius
+        casing_connect_padding = self.spec.casing_connect_padding_to_attachment_height * self.stage.stator.attachment_height
+        self.casing_connect_length = self.casing_thickness - casing_connect_padding - self.stage.stator.attachment_height
 
         self.blade_cad_model = BladeCadModel(
             self.stage.stator,
             spec=BladeCadModelSpecification(
                 self.spec.include_attachment,
-                # shaft_connect_length=self.casing_connect_length
+                screw_length_padding=self.casing_thickness-self.stage.stator.attachment_height
             )
         )
 
-        self.casing_connect_padding = self.spec.casing_connect_padding_to_attachment_height * self.stage.stator.attachment_height
-        self.casing_connect_heatset = FastenerPredicter.predict_heatset(
-            target_diameter=self.stage.rotor.disk_height*self.spec.casing_connect_heatset_diameter_to_disk_height,
-        )
-
-        self.casing_connect_length = self.casing_thickness - self.casing_connect_padding - self.stage.stator.attachment_height
 
         self.casing_connect_screw = FastenerPredicter.predict_screw(
             target_diameter=self.casing_connect_heatset.thread_diameter,
-            target_length=self.casing_connect_length+self.casing_connect_padding+self.stage.stator.attachment_height*0.5
+            target_length=self.casing_connect_length+self.casing_connect_heatset.nut_thickness
         )
 
         self.casing_connect_height = self.casing_connect_screw.head_diameter * self.spec.casing_connect_height_to_screw_head_diameter
@@ -77,10 +77,7 @@ class CasingCadModel:
 
         if self.previous_stage:
             self.previous_stage_casing_cad_model = CasingCadModel(self.previous_stage, self.first_stage, spec=self.spec)
-            # self.next_stage_casing_connector_screw = FastenerPredicter.predict_screw(
-            #     target_diameter=self.next_stage_shaft_cad_model.shaft_connector_heatset.thread_diameter,
-            #     target_length=self.next_stage_shaft_cad_model.shaft_connector_heatset.nut_thickness + (self.stage.stator.hub_radius - self.next_stage_shaft_cad_model.shaft_connect_outer_radius)
-            # )
+
 
 
     @cached_property
@@ -88,12 +85,6 @@ class CasingCadModel:
         base_assembly = cq.Assembly()
         blade_assembly = cq.Assembly()
         fastener_assembly = cq.Assembly()
-
-        path = (
-            cq.Workplane("XZ")
-            .moveTo(0, 0)
-            .lineTo(0, self.stage.stage_height*(1+self.spec.casing_transition_to_total_height))
-        )
 
         casing_cut_profile = (
             # Stator Disk
@@ -122,31 +113,24 @@ class CasingCadModel:
             .extrude(self.casing_height)
             .cut(casing_cut_profile)
         )
-
+        sector_angle = 360 / self.stage.stator.number_of_blades
         if self.spec.include_attachment:
             casing_profile = (
                 casing_profile
 
                 # Cut Attachments - TODO: make this operation faster
-                # .faces("<Z")
-                # .workplane()
-                # .polarArray(self.stage.stator.tip_radius, 0, 360, self.stage.stator.number_of_blades)
-                # .eachpoint(
-                #     lambda loc: (
-                #         cq.Workplane("XY")
-                #         .polyline(self.stage.stator.attachment_with_tolerance)  # type: ignore
-                #         .close()
-                #         .rotate((0, 0, 0), (0, 0, 1), 90)
+                .faces("<Z")
+                .workplane()
+                .polarArray(self.stage.stator.tip_radius, 0, 360, self.stage.stator.number_of_blades)
+                .eachpoint(
+                    lambda loc: (
+                        cq.Workplane("XY")
+                        .polyline(self.stage.stator.attachment_with_tolerance)  # type: ignore
+                        .close()
+                        .rotate((0, 0, 0), (0, 0, 1), 90)
 
-                #     ).val().located(loc), True)  # type: ignore
-                # .cutBlind(-self.stage.stator.disk_height)
-
-                # Blade Lock Screws
-                # .faces("<Z")
-                # .workplane(offset=-self.blade_cad_model.lock_screw.head_diameter*1.5)
-                # .polarArray(self.casing_connect_outer_radius*0.99, 0, 360, self.stage.stator.number_of_blades)
-                # .mutatePoints(lambda loc: loc * cq.Location(cq.Vector(0, 0, 0), cq.Vector(0, 1, 0), 90))
-                # .clearanceHole(self.blade_cad_model.lock_screw, fit="Loose", baseAssembly=fastener_assembly)
+                    ).val().located(loc), True)  # type: ignore
+                .cutBlind(-self.stage.stator.disk_height)
 
                 # Previous Stage Shaft Connect
                 .faces(">Z")
@@ -176,12 +160,37 @@ class CasingCadModel:
                 .mutatePoints(lambda loc: loc * cq.Location(cq.Vector(0, 0, 0), cq.Vector(0, 1, 0), 90))
                 .clearanceHole(self.casing_connect_screw, fit="Loose", baseAssembly=fastener_assembly)
 
+
+                # Blade Lock Screws
+                .faces("<Z")
+                .workplane(offset=-self.previous_stage_casing_cad_model.casing_connect_height-self.blade_cad_model.lock_screw.head_diameter*1.5)
+                .polarArray(self.casing_connect_outer_radius, 0, 360, self.stage.stator.number_of_blades)
+                .mutatePoints(lambda loc: loc * cq.Location(cq.Vector(0, 0, 0), cq.Vector(0, 1, 0), 90))
+                .clearanceHole(self.blade_cad_model.lock_screw, depth=self.blade_cad_model.lock_screw.length, fit="Loose", baseAssembly=fastener_assembly)
             )
 
 
+        # connector_length = self.casing_connect_outer_radius*np.sin(np.radians(sector_angle) / 2)
+        # connector_width = 10
+        # connector_height = self.casing_height
         
-        # .transformed(rotate=(90, 0, 0))
-        # .split(keepBottom=True)
+        # casing_half_connector = (
+        #     cq.Workplane("XY")
+        #     .box(connector_width, connector_length, connector_height)
+        # )
+
+
+        left_casing_profile = (
+            casing_profile
+            .transformed(rotate=(90, -sector_angle/2, 0))
+            .split(keepBottom=True)
+        )
+
+        right_casing_profile = (
+            casing_profile
+            .transformed(rotate=(90, 180-sector_angle/2, 0))
+            .split(keepBottom=True)
+        )
 
         # blade_vertical_offset = self.stage.stator.disk_height/2
         # blade_assembly_locs = (
@@ -195,8 +204,9 @@ class CasingCadModel:
         #     assert isinstance(blade_assembly_loc, cq.Location)
         #     blade_assembly.add(self.blade_cad_model.blade_assembly, loc=blade_assembly_loc, name=f"Blade {i+1}")
         
-        base_assembly.add(casing_profile, name=f"Stage Casing")
-        # base_assembly.add(blade_assembly, name="Blades")
+        base_assembly.add(left_casing_profile, name=f"Left Casing")
+        base_assembly.add(right_casing_profile, name=f"Right Casing")
+        base_assembly.add(blade_assembly, name="Blades")
         base_assembly.add(fastener_assembly, name="Fasteners")
 
         return base_assembly
