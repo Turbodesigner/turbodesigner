@@ -10,29 +10,29 @@ from turbodesigner.turbomachinery import TurbomachineryExport
 
 @dataclass
 class ShaftCadModelSpecification:
-    include_attachment: bool = True
+    is_simple: bool = False
     "whether to include attachment or fuse into shaft (bool)"
 
     shaft_transition_to_total_height: float = 0.25
     "casing transition height to total stage height (dimensionless)"
 
     stage_connect_length_to_heatset_thickness: float = 2.00
-    "shaft connect to hub radius (dimensionless)"
+    "shaft stage connect to hub radius (dimensionless)"
 
     stage_connect_height_to_screw_head_diameter: float = 1.75
-    "shaft connect to disk height (dimensionless)"
+    "shaft stage connect to disk height (dimensionless)"
 
     stage_connect_padding_to_attachment_height: float = 1.25
-    "shaft connect padding to attachment height (dimensionless)"
+    "shaft stage connect padding to attachment height (dimensionless)"
 
     stage_connect_heatset_diameter_to_disk_height: float = 0.05
-    "shaft connect heatset diameter to disk height (dimensionless)"
+    "shaft stage connect heatset diameter to disk height (dimensionless)"
 
     stage_connect_screw_quantity: int = 4
-    "shaft connect screw quantity (dimensionless)"
+    "shaft stage connect screw quantity (dimensionless)"
 
     stage_connect_clearance: float = 0.5
-    "adapter connection circular clearance (mm)"
+    "shaft stage connect circular clearance (mm)"
 
 @dataclass
 class ShaftCadModel:
@@ -56,7 +56,7 @@ class ShaftCadModel:
         self.blade_cad_model = BladeCadModel(
             self.stage.rotor,
             spec=BladeCadModelSpecification(
-                self.spec.include_attachment,
+                not self.spec.is_simple,
                 screw_length_padding=self.stage_connect_length
             )
         )
@@ -75,6 +75,25 @@ class ShaftCadModel:
                 target_diameter=self.next_stage_shaft_cad_model.stage_connect_heatset.thread_diameter,
                 target_length=self.next_stage_shaft_cad_model.stage_connect_heatset.nut_thickness + (self.stage.stator.hub_radius - self.next_stage_shaft_cad_model.stage_connect_outer_radius)
             )
+
+    @cached_property
+    def shaft_stage_sector(self):
+        sector_angle = 360 / self.stage.rotor.number_of_blades
+        sector_cut_profile = (
+            cq.Workplane('XZ')
+            .transformed(rotate=(0, sector_angle/2, 0))
+            .rect(self.stage.stator.hub_radius, self.stage.stage_height*2, centered=False)
+            .revolve(sector_angle*(self.stage.rotor.number_of_blades-1), (0, 0, 0), (0, 1, 0))
+        )
+
+        shaft_profile = self.shaft_stage_assembly.objects["Stage Shaft"].obj
+        assert shaft_profile is not None and isinstance(shaft_profile, cq.Workplane)
+        shaft_sector_profile = (
+            shaft_profile
+            .cut(sector_cut_profile)
+        )
+
+        return shaft_sector_profile
 
     @cached_property
     def shaft_stage_assembly(self):
@@ -104,7 +123,7 @@ class ShaftCadModel:
             .extrude(self.stage.rotor.disk_height)
         )
 
-        if self.spec.include_attachment:
+        if not self.spec.is_simple:
             shaft_profile = (
                 shaft_profile
 

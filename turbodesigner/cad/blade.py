@@ -97,8 +97,13 @@ class BladeCadModel:
         blade_profile = (
             blade_profile
             .sweep(path, multisection=True, makeSolid=True)
-            .add(attachment_profile)
         )
+
+        if self.spec.include_attachment:
+            blade_profile = (
+                blade_profile
+                .add(attachment_profile)
+            )
 
 
         base_assembly.add(blade_profile, name="Blade")
