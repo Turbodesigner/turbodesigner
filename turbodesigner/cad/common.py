@@ -47,9 +47,13 @@ class ExtendedWorkplane(cq.Workplane):
 
     def mutatePoints(self, callback: Callable[[cq.Location], cq.Location]):
         for (i, loc) in enumerate(self.objects):
-            if isinstance(loc, cq.Location):
-                mutated_loc = callback(loc)
-                self.objects[i] = mutated_loc
+            if isinstance(loc, cq.Vertex) or isinstance(loc, cq.Vector):
+                loc = cq.Location(self.plane, loc.toTuple())
+
+            assert isinstance(loc, cq.Location)
+            mutated_loc = callback(loc)
+            self.objects[i] = mutated_loc
+
         return self
  
 
