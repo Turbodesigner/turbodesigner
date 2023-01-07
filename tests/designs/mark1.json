@@ -18,7 +18,7 @@
     "AR": {"rotor": 3.0, "stator": 3.25},
     "sc": {"rotor": 1.0, "stator": 1.0},
     "tbc": {"rotor": 0.1, "stator": 0.1},
-    "rgc": 0.25,
-    "sgc": 0.5
+    "rgc": 0.5,
+    "sgc": 0.75
 }
 

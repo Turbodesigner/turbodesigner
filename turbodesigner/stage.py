@@ -173,6 +173,14 @@ class Stage:
             next_flow_station=None if self.next_stage is None else self.next_stage.rotor.flow_station
         )
 
+    @cached_property
+    def stage_gap(self):
+        return self.sgc*self.rotor.c
+
+    @cached_property
+    def row_gap(self):
+        return self.rgc*self.rotor.c
+
     def to_cad_export(self):
         rotor = self.rotor.to_cad_export()
         stator = self.stator.to_cad_export()
@@ -182,6 +190,6 @@ class Stage:
             rotor=rotor,
             stator=stator,
             stage_height=stage_height,
-            stage_gap=self.sgc*self.rotor.c*MM,
-            row_gap=self.rgc*self.rotor.c*MM
+            stage_gap=self.stage_gap*MM,
+            row_gap=self.row_gap*MM
         )
