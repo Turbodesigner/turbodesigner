@@ -16,3 +16,10 @@ RUN pip install --pre cadquery
 COPY requirements.txt /tmp/pip-tmp/
 RUN pip install -r /tmp/pip-tmp/requirements.txt && rm -rf /tmp/pip-tmp
 RUN pip install jupyter-cadquery==3.4.0 cadquery-massembly==1.0.0rc0
+
+# Install SU2
+RUN mkdir -p /usr/local/su2
+RUN wget -O /usr/local/su2/su2.zip https://github.com/su2code/SU2/releases/download/v7.3.1/SU2-v7.3.1-linux64.zip
+RUN unzip /usr/local/su2/su2.zip -d /usr/local/su2
+RUN echo 'export PATH=/usr/local/su2/bin:$PATH' >> /home/vscode/.bashrc
+RUN . /home/vscode/.bashrc
