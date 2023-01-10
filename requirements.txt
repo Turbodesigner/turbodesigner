@@ -9,3 +9,4 @@ scipy
 dacite
 git+https://github.com/gumyr/cq_warehouse.git#egg=cq_warehouse
 pandas
+pymoo

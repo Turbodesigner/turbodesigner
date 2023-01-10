@@ -1,0 +1,39 @@
+{
+    "pressure_ratio": [
+        [1, 5], "dimensionless"
+    ],
+    "mass_flow_rate": [
+        [1.0, 5.0], "kg/s"
+    ],
+    "isentropic_efficiency": [
+        [0.85, 1.00], "dimensionless"
+    ],
+    "shaft_speed": [
+        [15000, 50000], "rpm"
+    ],
+    "inlet_flow_velocity": [
+        [10, 100], "m/s"
+    ],
+
+    "inlet_guide_vane_angle": [0, "rad"],
+    "inlet_hub_to_tip": [0.5, "dimensionless"],
+    "stage_quantity": [7, "dimensionless"],
+    "ambient_pressure": [1.01, "bar"],
+    "ambient_temperature": [288, "K"],
+    "specific_gas_constant": [287, "J/(kg*K)"],
+    "specific_heat_ratio": [1.4, "dimensionless"],
+    "max_diameter": [0.4, "m"],
+
+    "blade": {
+        "max_thickness_to_chord": [
+            [0.05, 0.1], "dimensionless"
+        ],
+        "tip_clearance_to_chord": [0.07, "dimensionless"],
+        "aspect_ratio": [
+            [0.6, 4.0], "dimensionless"
+        ],
+        "spacing_to_chord": [
+            [0.5, 1.17], "dimensionless"
+        ]
+    }
+}
