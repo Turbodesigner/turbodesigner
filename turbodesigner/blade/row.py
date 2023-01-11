@@ -83,7 +83,7 @@ class BladeRow:
     N_stream: int
     "number of streams per blade (dimensionless)"
 
-    next_flow_station: Optional["FlowStation"] = None
+    next_stage_flow_station: Optional["FlowStation"] = None
     "next blade row flow station"
 
     deviation_iterations: int = 20
@@ -91,8 +91,8 @@ class BladeRow:
 
     def __post_init__(self):
         assert self.N_stream % 2 != 0, "N_stream must be an odd number" 
-        if self.is_rotating and self.next_flow_station is None:
-            self.next_flow_station = self.stage_flow_station.copyStream(
+        if self.is_rotating and self.next_stage_flow_station is None:
+            self.next_stage_flow_station = self.stage_flow_station.copyStream(
                 alpha=self.vortex.alpha(self.radii, is_rotating=False),
                 radius=self.radii
             )
@@ -153,9 +153,25 @@ class BladeRow:
         return 2*np.pi*self.rh/self.Z
 
     @cached_property
+    def sh(self):
+        "spacing to height (dimensionless)"
+        return self.s/self.h
+
+    @cached_property
     def sigma(self):
         "spacing between blades (dimensionless)"
         return 1 / self.sc
+
+    @cached_property
+    def deHaller(self):
+        "deHaller factor (dimensionless)"
+        return self.next_flow_station.w / self.flow_station.w
+
+    @cached_property
+    def Re(self):
+        "Reynold's number of blade chord (dimensionless)"
+        return self.stage_flow_station.rho * self.stage_flow_station.Vm * (self.c / self.stage_flow_station.mu)
+
 
     @cached_property
     def airfoil_type(self):
@@ -192,6 +208,16 @@ class BladeRow:
         )
 
     @cached_property
+    def next_flow_station(self):
+        "next flow station (FlowStation)"
+        assert self.next_stage_flow_station is not None
+        return self.next_stage_flow_station.copyStream(
+            alpha=self.vortex.alpha(self.radii, self.is_rotating),
+            radius=self.radii
+        )
+
+
+    @cached_property
     def beta1(self):
         "blade inlet flow angle (rad)"
         if self.is_rotating:
@@ -202,12 +228,12 @@ class BladeRow:
     def beta2(self):
         "blade outlet flow angle (rad)"
         if self.is_rotating:
-            assert self.next_flow_station is not None
-            return self.next_flow_station.beta                      # beta2
+            assert self.next_stage_flow_station is not None
+            return self.next_stage_flow_station.beta                      # beta2
 
-        assert self.next_flow_station is not None or self.vortex.Rm == 0.5, "next_flow_station needs to be defined or Rc=0.5"
-        if self.next_flow_station is not None:
-            return self.next_flow_station.alpha                     # alpha3
+        assert self.next_stage_flow_station is not None or self.vortex.Rm == 0.5, "next_flow_station needs to be defined or Rc=0.5"
+        if self.next_stage_flow_station is not None:
+            return self.next_stage_flow_station.alpha                     # alpha3
         return self.vortex.alpha(self.radii, is_rotating=False)     # alpha3
 
     @cached_property

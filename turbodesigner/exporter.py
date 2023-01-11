@@ -7,9 +7,9 @@ from turbodesigner.units import DEG, BAR
 
 
 def get_hub_tip_dict_from_export(
-    stage: Stage, 
-    table_dict: dict[str, dict], 
-    export_dict: dict, 
+    stage: Stage,
+    table_dict: dict[str, dict],
+    export_dict: dict,
     group_name: Optional[str] = None
 ):
     for (key, value) in export_dict.items():
@@ -19,9 +19,10 @@ def get_hub_tip_dict_from_export(
         table_dict["Tip"][(group_name, key)] = value[-1] if isinstance(value, np.ndarray) else value
     return table_dict
 
+
 def get_hub_mean_tip_table(
-    turbomachinery: Turbomachinery, 
-    to_export_dict: Callable[[Stage], dict], 
+    turbomachinery: Turbomachinery,
+    to_export_dict: Callable[[Stage], dict],
     is_multi_row=False
 ):
     table = {
@@ -63,8 +64,8 @@ class TurbomachineryExporter:
             "Rs (J/(kgK))": turbomachinery.Rs,
             "mdot (kg/s)": turbomachinery.mdot,
             "PR (dimensionless)": turbomachinery.PR,
-            "P01 (bar)": turbomachinery.P01*BAR,
-            "T01 (K)": turbomachinery.T01,
+            "P01 (bar)": turbomachinery.Pt*BAR,
+            "T01 (K)": turbomachinery.Tt,
             "eta_isen (dimensionless)": turbomachinery.eta_isen,
             "eta_poly (dimensionless)": turbomachinery.eta_poly,
             "N_stg": turbomachinery.N_stg,
@@ -80,8 +81,8 @@ class TurbomachineryExporter:
             [
                 {
                     "Stage": stage.stage_number,
-                    "Delta_T0 (K)": stage.Delta_T0,
-                    "Delta_h0 (J/kg)": stage.Delta_h0,
+                    "Delta_T0 (K)": stage.Delta_Tt,
+                    "Delta_h0 (J/kg)": stage.Delta_ht,
                     "PR (dimensionless)": stage.PR,
                     "R (dimensionless)": stage.R,
                     "phi (dimensionless)": stage.phi,
@@ -97,20 +98,20 @@ class TurbomachineryExporter:
             [
                 {
                     "Stage": stage.stage_number,
-                    "T01 (K)": stage.inlet_flow_station.T0,
-                    "P01 (bar)": stage.inlet_flow_station.P0 * BAR,
-                    "H01 (J/kg*K)": stage.inlet_flow_station.H0,
+                    "T01 (K)": stage.inlet_flow_station.Tt,
+                    "P01 (bar)": stage.inlet_flow_station.Pt * BAR,
+                    "H01 (J/kg*K)": stage.inlet_flow_station.ht,
                     "T1 (K)": stage.inlet_flow_station.T,
                     "P1 (bar)": stage.inlet_flow_station.P * BAR,
-                    "H1 (K)": stage.inlet_flow_station.H,
+                    "H1 (K)": stage.inlet_flow_station.h,
                     "rho1 (kg/m^3)": stage.inlet_flow_station.rho,
 
-                    "T02 (K)": stage.mid_flow_station.T0,
-                    "P02 (bar)": stage.mid_flow_station.P0 * BAR,
-                    "H02 (J/kg*K)": stage.mid_flow_station.H0,
+                    "T02 (K)": stage.mid_flow_station.Tt,
+                    "P02 (bar)": stage.mid_flow_station.Pt * BAR,
+                    "H02 (J/kg*K)": stage.mid_flow_station.ht,
                     "T2 (K)": stage.mid_flow_station.T,
                     "P2 (bar)": stage.mid_flow_station.P * BAR,
-                    "H2 (K)": stage.mid_flow_station.H,
+                    "H2 (K)": stage.mid_flow_station.h,
                     "rho2 (kg/m^3)": stage.mid_flow_station.rho,
                 }
                 for stage in turbomachinery.stages

@@ -7,10 +7,12 @@ from turbodesigner.blade.vortex.free_vortex import FreeVortex
 from turbodesigner.flow_station import FlowStation
 from turbodesigner.units import MM
 
+
 @dataclass
 class StageBladeProperty:
     rotor: float
     stator: float
+
 
 @dataclass
 class StageCadExport:
@@ -40,7 +42,7 @@ class Stage:
     stage_number: int
     "stage number"
 
-    Delta_T0: float
+    Delta_Tt: float
     "stage stagnation temperature change between inlet and outlet (K)"
 
     R: float
@@ -69,7 +71,7 @@ class Stage:
 
     sgc: float
     "stage gap to chord (dimensionless)"
-    
+
     next_stage: Optional["Stage"] = None
     "next turbomachinery stage"
 
@@ -79,9 +81,9 @@ class Stage:
         self.N = self.previous_flow_station.N
 
     @cached_property
-    def Delta_h0(self) -> float:
+    def Delta_ht(self) -> float:
         "enthalpy change between inlet and outlet (J/kg)"
-        return self.Delta_T0*self.previous_flow_station.Cp
+        return self.Delta_Tt*self.previous_flow_station.Cp
 
     @cached_property
     def U(self):
@@ -98,12 +100,12 @@ class Stage:
     @cached_property
     def psi(self):
         "loading coefficient (dimensionless)"
-        return self.Delta_h0/self.U**2
+        return self.Delta_ht/self.U**2
 
     @cached_property
-    def T02(self):
-        "outlet stagnation temperature (K)"
-        return self.inlet_flow_station.T0 + self.Delta_T0
+    def Tt2(self):
+        "outlet total temperature (K)"
+        return self.inlet_flow_station.Tt + self.Delta_Tt
 
     @cached_property
     def inlet_flow_station(self):
@@ -117,9 +119,9 @@ class Stage:
     def mid_flow_station(self):
         "mid flow station between rotor and stator (FlowStation)"
         alpha2 = np.arctan((1 - self.R + (1/2)*self.psi)/self.phi)
-        P02 = self.inlet_flow_station.P0*self.PR
+        P02 = self.inlet_flow_station.Pt*self.PR
         return self.inlet_flow_station.copyFlow(
-            T0=self.T02,
+            T0=self.Tt2,
             P0=P02,
             alpha=alpha2,
         )
@@ -133,7 +135,12 @@ class Stage:
     @cached_property
     def TR(self):
         "stagnation temperature ratio between stage outlet and inlet (dimensionless)"
-        return self.T02/self.inlet_flow_station.T0
+        return self.Tt2/self.inlet_flow_station.Tt
+
+    @cached_property
+    def tau(self):
+        "torque transmitted to stage (N*m)"
+        return self.inlet_flow_station.mdot*self.rm*(self.mid_flow_station.Vtheta - self.inlet_flow_station.Vtheta)
 
     @cached_property
     def vortex(self):
@@ -156,7 +163,7 @@ class Stage:
             tbc=self.tbc.rotor,
             is_rotating=True,
             N_stream=self.N_stream,
-            next_flow_station=self.stator.flow_station
+            next_stage_flow_station=self.stator.flow_station
         )
 
     @cached_property
@@ -170,7 +177,7 @@ class Stage:
             tbc=self.tbc.stator,
             is_rotating=False,
             N_stream=self.N_stream,
-            next_flow_station=None if self.next_stage is None else self.next_stage.rotor.flow_station
+            next_stage_flow_station=None if self.next_stage is None else self.next_stage.rotor.flow_station
         )
 
     def to_cad_export(self):

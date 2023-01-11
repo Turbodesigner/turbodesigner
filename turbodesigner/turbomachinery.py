@@ -6,13 +6,15 @@ import numpy as np
 from turbodesigner.flow_station import FlowStation
 from turbodesigner.stage import Stage, StageBladeProperty, StageCadExport
 from dacite.core import from_dict
+Number = Union[int, float]
+
 
 @dataclass
 class TurbomachineryCadExport:
     stages: list[StageCadExport]
     "turbomachinery stages"
 
-Number = Union[int, float]
+
 @dataclass
 class Turbomachinery:
     gamma: float
@@ -33,11 +35,11 @@ class Turbomachinery:
     PR: float
     "pressure ratio (dimensionless)"
 
-    P01: float
-    "ambient pressure (Pa)"
+    Pt: float
+    "ambient total pressure (Pa)"
 
-    T01: float
-    "ambient temperature (K)"
+    Tt: float
+    "ambient total temperature (K)"
 
     eta_isen: float
     "isentropic efficiency (dimensionless)"
@@ -81,12 +83,12 @@ class Turbomachinery:
     @cached_property
     def T02(self):
         "outlet stagnation temperature (K)"
-        return self.T01*self.PR**((self.gamma - 1)/(self.eta_poly*self.gamma))
+        return self.Tt*self.PR**((self.gamma - 1)/(self.eta_poly*self.gamma))
 
     @cached_property
     def P02(self):
         "stagnation outlet pressure (Pa)"
-        return self.P01*self.PR
+        return self.Pt*self.PR
 
     @cached_property
     def eta_poly(self):
@@ -99,8 +101,8 @@ class Turbomachinery:
         flow_station = FlowStation(
             gamma=self.gamma,
             Rs=self.Rs,
-            T0=self.T01,
-            P0=self.P01,
+            Tt=self.Tt,
+            Pt=self.Pt,
             Vm=self.cx,
             mdot=self.mdot,
             B=self.B_in[0] if isinstance(self.B_in, list) else self.B_in,
@@ -115,8 +117,8 @@ class Turbomachinery:
         return FlowStation(
             gamma=self.gamma,
             Rs=self.Rs,
-            T0=self.T02,
-            P0=self.P02,
+            Tt=self.T02,
+            Pt=self.P02,
             Vm=self.cx,
             mdot=self.mdot,
             B=self.B_out[-1] if isinstance(self.B_out, list) else self.B_out,
@@ -127,12 +129,12 @@ class Turbomachinery:
     @cached_property
     def Delta_T0(self):
         "stagnation temperature change between outlet and inlet (dimensionless)"
-        return self.outlet_flow_station.T0 - self.inlet_flow_station.T0
+        return self.outlet_flow_station.Tt - self.inlet_flow_station.Tt
 
     @cached_property
     def TR(self):
         "stagnation temperature ratio between outlet and inlet (dimensionless)"
-        return self.outlet_flow_station.T0/self.inlet_flow_station.T0
+        return self.outlet_flow_station.Tt/self.inlet_flow_station.Tt
 
     @cached_property
     def stages(self):
@@ -141,7 +143,7 @@ class Turbomachinery:
             assert len(self.Delta_T0_stg) == self.N_stg, "Delta_T0 quantity does not equal N_stg"
         else:
             assert self.Delta_T0_stg == "equal", f"'{self.Delta_T0_stg}' for  Delta_T0_stg is invalid"
-        
+
         if isinstance(self.R_stg, list):
             assert len(self.R_stg) == self.N_stg, "R quantity does not equal N_stg"
             assert self.R_stg[self.N_stg-1] == 0.5, "Last stage reaction only supports R=0.5"
@@ -161,7 +163,7 @@ class Turbomachinery:
         for i in range(self.N_stg):
             stage = Stage(
                 stage_number=i+1,
-                Delta_T0=self.Delta_T0_stg[i] if isinstance(self.Delta_T0_stg, list) else self.Delta_T0/self.N_stg,
+                Delta_Tt=self.Delta_T0_stg[i] if isinstance(self.Delta_T0_stg, list) else self.Delta_T0/self.N_stg,
                 R=self.R_stg[i] if isinstance(self.R_stg, list) else self.R_stg,
                 previous_flow_station=previous_flow_station,
                 eta_poly=self.eta_poly,
@@ -189,6 +191,7 @@ class Turbomachinery:
     @staticmethod
     def from_dict(obj) -> "Turbomachinery":
         return from_dict(data_class=Turbomachinery, data=obj)
+
     @staticmethod
     def from_file(file_name: str) -> "Turbomachinery":
         with open(file_name, "r") as fp:
